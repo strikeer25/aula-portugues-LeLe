@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Aula Divertida - Português Brasil 🇧🇷</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap');
+    
+    body {
+      font-family: 'Fredoka', sans-serif;
+      background: radial-gradient(circle at top, #bbf7d0 0%, #86efac 45%, #4ade80 100%);
+      user-select: none;
+      overflow-x: hidden;
+    }
+
+    .btn-game {
+      transition: all 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
+      box-shadow: 0 5px 0 rgba(0,0,0,0.22), 0 8px 14px rgba(0,0,0,0.12);
+    }
+    .btn-game:hover { transform: translateY(-2px); }
+    .btn-game:active {
+      transform: translateY(4px);
+      box-shadow: 0 1px 0 rgba(0,0,0,0.22), 0 3px 6px rgba(0,0,0,0.12);
+    }
+
+    @keyframes popIn {
+      0% { opacity: 0; transform: scale(0.4) rotate(-8deg); }
+      75% { transform: scale(1.06) rotate(2deg); }
+      100% { opacity: 1; transform: scale(1) rotate(0deg); }
+    }
+    .animate-pop { animation: popIn 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+    @keyframes floatSlow {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-7px) rotate(3deg); }
+    }
+    .animate-float { animation: floatSlow 3s ease-in-out infinite; }
+
+    /* Giro 3D real para cartas de Memotest */
+    .perspective { perspective: 1000px; }
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+      transform-style: preserve-3d;
+    }
+    .card-flipped { transform: rotateY(180deg); }
+    .card-face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      border-radius: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .card-back { transform: rotateY(180deg); }
+
+    .magic-curtain {
+      background: repeating-linear-gradient(45deg, #312e81, #312e81 14px, #4338ca 14px, #4338ca 28px);
+      box-shadow: inset 0 0 25px rgba(0,0,0,0.5);
+    }
+
+    .cloud {
+      position: fixed;
+      background: rgba(255, 255, 255, 0.45);
+      border-radius: 9999px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Ruleta animada */
+    #roulette-wheel {
+      transition: transform 3.8s cubic-bezier(0.15, 0.85, 0.22, 1);
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-3 sm:p-5 relative">
+
+  <div class="cloud w-40 h-14 top-8 left-6 animate-float"></div>
+  <div class="cloud w-56 h-16 bottom-10 right-8 animate-float" style="animation-delay: 1.5s;"></div>
+
+  <!-- ===================================================================== -->
+  <!-- PANTALLA 1: INICIO / SELECCIÓN DE MODO                                -->
+  <!-- ===================================================================== -->
+  <div id="screen-login" class="relative z-10 w-full max-w-md bg-white/95 backdrop-blur rounded-[2rem] shadow-2xl p-6 text-center border-4 border-white animate-pop">
+    <div class="text-6xl mb-1 animate-float inline-block">🦜🇧🇷</div>
+    <h1 class="text-3xl sm:text-4xl font-bold text-green-700 tracking-tight mb-1">Aula de Português</h1>
+    <p class="text-gray-500 font-medium mb-5">¡Jugá, escuchá y aprendé!</p>
+
+    <!-- 1. Entrar a Clase en Vivo (Alumno) -->
+    <div class="bg-gradient-to-b from-sky-50 to-blue-100 p-4 rounded-3xl mb-4 border-2 border-blue-200 shadow-inner">
+      <h2 class="text-lg font-bold text-blue-800 mb-2">🎮 Entrar a Clase en Vivo</h2>
+      <input id="student-name" type="text" placeholder="Tu nombre (ej. Mateo)" class="w-full p-3 rounded-2xl border-2 border-blue-300 text-center text-lg font-bold text-gray-800 mb-2 focus:outline-none focus:border-blue-500" />
+      <input id="room-code-input" type="number" placeholder="Código de sala (ej. 1234)" class="w-full p-3 rounded-2xl border-2 border-blue-300 text-center text-xl font-bold tracking-widest text-blue-700 mb-3 focus:outline-none focus:border-blue-500" />
+      <button onclick="playSfx('pop'); joinAsStudent()" class="w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold py-3 rounded-2xl text-lg btn-game">
+        ¡Entrar con la Profe! 🚀
+      </button>
+    </div>
+
+    <!-- 2. Practicar Solo (Fuera de clase) -->
+    <button onclick="playSfx('win'); startSoloPractice()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold py-3.5 rounded-2xl text-lg btn-game mb-3">
+      🧸 Jugar Solo (Práctica en Casa)
+    </button>
+
+    <!-- 3. Modo Profesora -->
+    <button onclick="playSfx('pop'); createRoomAsTeacher()" class="w-full bg-gradient-to-r from-amber-400 to-orange-500 text-white font-bold py-3 rounded-2xl text-base btn-game">
+      👩‍🏫 Crear Sala (Soy la Profe)
+    </button>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- PANTALLA 2: PANEL DE LA PROFESORA (MODERADOR)                         -->
+  <!-- ===================================================================== -->
+  <div id="screen-teacher" class="hidden relative z-10 w-full max-w-5xl bg-white/95 backdrop-blur rounded-[2rem] shadow-2xl p-5 sm:p-6 border-4 border-amber-300 animate-pop">
+    <!-- Cabecera Profe -->
+    <div class="flex flex-wrap justify-between items-center border-b-2 border-gray-100 pb-4 mb-4 gap-3">
+      <div>
+        <span class="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Panel de Control • Letícia</span>
+        <h2 class="text-xl sm:text-2xl font-bold text-gray-800 mt-1 flex items-center gap-2">
+          Sala: <span id="teacher-room-code" class="bg-green-100 text-green-700 px-3.5 py-0.5 rounded-2xl text-2xl sm:text-3xl tracking-widest border-2 border-green-300">----</span>
+        </h2>
+      </div>
+      <!-- Selector de los 5 Juegos -->
+      <div class="flex flex-wrap gap-2">
+        <button onclick="playSfx('pop'); setGameMode('memotest')" id="btn-mode-memotest" class="px-3.5 py-2 rounded-xl font-bold text-sm bg-teal-600 text-white btn-game">🎨 Memotest Colores</button>
+        <button onclick="playSfx('pop'); setGameMode('dobble')" id="btn-mode-dobble" class="px-3.5 py-2 rounded-xl font-bold text-sm bg-gray-200 text-gray-700 btn-game">🎯 Dobble</button>
+        <button onclick="playSfx('pop'); setGameMode('desaparecio')" id="btn-mode-desaparecio" class="px-3.5 py-2 rounded-xl font-bold text-sm bg-gray-200 text-gray-700 btn-game">🙈 ¿Qué sumió?</button>
+        <button onclick="playSfx('pop'); setGameMode('roleta')" id="btn-mode-roleta" class="px-3.5 py-2 rounded-xl font-bold text-sm bg-gray-200 text-gray-700 btn-game">🎡 Ruleta</button>
+        <button onclick="playSfx('pop'); setGameMode('caza')" id="btn-mode-caza" class="px-3.5 py-2 rounded-xl font-bold text-sm bg-gray-200 text-gray-700 btn-game">🧭 Tesoro / Simón</button>
+      </div>
+    </div>
+
+    <!-- CONTROLES JUEGO 1: MEMOTEST POR COLORES -->
+    <div id="teacher-controls-memotest" class="mb-5 bg-teal-50 p-4 rounded-3xl border-2 border-teal-200">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <h3 class="font-bold text-teal-900 text-lg">🎨 Memotest por Colores:</h3>
+          <select id="memo-cat" class="bg-white border-2 border-teal-300 rounded-xl px-2.5 py-1 font-bold text-sm text-teal-800">
+            <option value="todos">🌈 Variado</option>
+            <option value="animales">🐶 Animales</option>
+            <option value="comidas">🍎 Comidas</option>
+            <option value="objetos">⚽ Objetos</option>
+            <option value="cuerpo">🖐️ Cuerpo y Ropa</option>
+          </select>
+          <select id="memo-size" class="bg-white border-2 border-teal-300 rounded-xl px-2.5 py-1 font-bold text-sm text-teal-800">
+            <option value="3">6 cartas (3 pares)</option>
+            <option value="4">8 cartas (4 pares)</option>
+            <option value="6">12 cartas (6 pares)</option>
+          </select>
+        </div>
+        <button onclick="playSfx('pop'); startNewMemotest()" class="bg-teal-600 text-white font-bold px-4 py-2 rounded-xl text-sm btn-game">🔄 Mezclar Nuevo</button>
+      </div>
+      <p class="text-xs text-teal-700 mb-3">El alumno dice <i>"Abre a amarela e a verde!"</i>. Podés tocar las cartas vos desde acá o darle el turno al alumno:</p>
+      <div id="teacher-memotest-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-2.5"></div>
+    </div>
+
+    <!-- CONTROLES JUEGO 2: DOBBLE -->
+    <div id="teacher-controls-dobble" class="hidden mb-5 bg-orange-50 p-4 rounded-3xl border-2 border-orange-200">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h3 class="font-bold text-orange-900 text-lg">🎯 Dobble Visual (¡Encontrá el repetido!)</h3>
+        <button onclick="playSfx('pop'); startNewDobble()" class="bg-orange-500 text-white font-bold px-4 py-2 rounded-xl text-sm btn-game">🎲 Siguiente Tarjeta Dobble</button>
+      </div>
+      <div id="teacher-dobble-preview" class="text-center p-3 bg-white rounded-2xl border border-orange-200"></div>
+    </div>
+
+    <!-- CONTROLES JUEGO 3: ¿QUÉ DESAPARECIÓ? -->
+    <div id="teacher-controls-desaparecio" class="hidden mb-5 bg-purple-50 p-4 rounded-3xl border-2 border-purple-200">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div class="flex items-center gap-2">
+          <h3 class="font-bold text-purple-900 text-lg">🙈 ¿Qué sumió?</h3>
+          <select id="disappear-cat" onchange="startNewDisappearRound()" class="bg-white border-2 border-purple-300 rounded-xl px-2.5 py-1 font-bold text-sm text-purple-800">
+            <option value="todos">🌈 Mezclado</option>
+            <option value="animales">🐶 Animales</option>
+            <option value="comidas">🍎 Comidas</option>
+            <option value="objetos">⚽ Objetos</option>
+          </select>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="playSfx('pop'); startNewDisappearRound()" class="bg-emerald-500 text-white font-bold px-3.5 py-2 rounded-xl text-sm btn-game">1. Mostrar 4</button>
+          <button onclick="playSfx('magic'); hideOneObject()" class="bg-rose-500 text-white font-bold px-3.5 py-2 rounded-xl text-sm btn-game">2. ¡Ocultar 1! 🙈</button>
+          <button onclick="playSfx('win'); revealMissingObject()" class="bg-sky-500 text-white font-bold px-3.5 py-2 rounded-xl text-sm btn-game">3. Revelar 🎉</button>
+        </div>
+      </div>
+      <div id="teacher-preview-items" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center"></div>
+    </div>
+
+    <!-- CONTROLES JUEGO 4: RULETA DE DESAFÍOS -->
+    <div id="teacher-controls-roleta" class="hidden mb-5 bg-pink-50 p-4 rounded-3xl border-2 border-pink-200">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h3 class="font-bold text-pink-900 text-lg">🎡 Roleta de Desafios</h3>
+        <button onclick="spinRoulette()" class="bg-pink-600 text-white font-bold px-5 py-2.5 rounded-xl text-sm btn-game">🎰 ¡Girar Ruleta en todas las pantallas!</button>
+      </div>
+      <div id="teacher-roulette-result" class="bg-white p-4 rounded-2xl border border-pink-200 text-center font-bold text-pink-800 text-lg">
+        Apretá "Girar Ruleta" para lanzar un desafío en portugués
+      </div>
+    </div>
+
+    <!-- CONTROLES JUEGO 5: CAÇA AO TESOURO / SIMÓN DICE -->
+    <div id="teacher-controls-caza" class="hidden mb-5 bg-amber-50 p-4 rounded-3xl border-2 border-amber-200">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h3 class="font-bold text-amber-900 text-lg">🧭 Caça ao Tesouro & O Mestre Mandou (Simón Dice)</h3>
+        <div class="flex gap-2">
+          <button onclick="playSfx('pop'); nextMission('tesouro')" class="bg-amber-600 text-white font-bold px-3.5 py-2 rounded-xl text-sm btn-game">🔍 Nueva Búsqueda (Tesoro)</button>
+          <button onclick="playSfx('pop'); nextMission('simon')" class="bg-indigo-600 text-white font-bold px-3.5 py-2 rounded-xl text-sm btn-game">🗣️ Nuevo Simón Dice</button>
+        </div>
+      </div>
+      <div id="teacher-mission-preview" class="bg-white p-4 rounded-2xl border border-amber-200 text-center font-bold text-gray-800 text-lg">
+        Elegí una misión arriba para enviarla al celular del alumno
+      </div>
+    </div>
+
+    <!-- Lista de Alumnos Conectados -->
+    <div class="bg-slate-50 p-4 rounded-3xl border-2 border-slate-200">
+      <h3 class="font-bold text-slate-700 mb-2.5 text-base">👦👧 Alumnos en vivo:</h3>
+      <div id="students-list" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+        <p class="text-gray-400 text-sm">Esperando que entren los alumnos con el código...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- PANTALLA 3: VISTA DEL ALUMNO (EN VIVO O MODO PRÁCTICA SOLO)           -->
+  <!-- ===================================================================== -->
+  <div id="screen-student" class="hidden relative z-10 w-full max-w-xl bg-white/95 backdrop-blur rounded-[2rem] shadow-2xl p-5 sm:p-6 text-center border-4 border-sky-300 animate-pop">
+    <!-- HUD Superior -->
+    <div class="flex justify-between items-center mb-4 bg-slate-100 p-2.5 rounded-2xl">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl">🦊</span>
+        <span id="display-student-name" class="font-bold text-base sm:text-lg text-slate-800"></span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="bg-amber-400 text-amber-950 px-3.5 py-1 rounded-xl font-bold text-base shadow-sm">
+          ⭐ <span id="display-student-score">0</span>
+        </div>
+        <button onclick="location.reload()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-2.5 py-1 rounded-xl text-xs font-bold">Salir</button>
+      </div>
+    </div>
+
+    <!-- BARRA DE SELECCIÓN SOLO PARA MODO "PRÁCTICA EN CASA" -->
+    <div id="solo-menu-bar" class="hidden mb-4 bg-emerald-50 p-3 rounded-2xl border-2 border-emerald-200">
+      <p class="text-xs font-bold text-emerald-800 uppercase mb-2">🧸 Modo Práctica Libre — Elegí tu juego:</p>
+      <div class="flex flex-wrap justify-center gap-2">
+        <button onclick="playSfx('pop'); initSoloGame('memotest')" class="bg-teal-500 text-white font-bold px-3 py-1.5 rounded-xl text-sm btn-game">🎨 Memotest Colores</button>
+        <button onclick="playSfx('pop'); initSoloGame('dobble')" class="bg-orange-500 text-white font-bold px-3 py-1.5 rounded-xl text-sm btn-game">🎯 Dobble</button>
+        <button onclick="playSfx('pop'); initSoloGame('desaparecio')" class="bg-purple-500 text-white font-bold px-3 py-1.5 rounded-xl text-sm btn-game">🙈 ¿Qué sumió?</button>
+        <button onclick="playSfx('pop'); initSoloGame('roleta')" class="bg-pink-500 text-white font-bold px-3 py-1.5 rounded-xl text-sm btn-game">🎡 Ruleta</button>
+      </div>
+    </div>
+
+    <!-- JUEGO 1 ALUMNO: MEMOTEST POR COLORES -->
+    <div id="student-game-memotest" class="hidden">
+      <div id="student-memo-banner" class="py-2 px-3 rounded-2xl mb-4 font-bold text-base sm:text-lg">
+        🎨 Memotest por Colores
+      </div>
+      <div id="student-memotest-grid" class="grid grid-cols-3 gap-3"></div>
+      <button id="solo-memo-reset" onclick="playSfx('pop'); initSoloGame('memotest')" class="hidden mt-4 bg-teal-600 text-white font-bold px-5 py-2.5 rounded-xl btn-game">🔄 Jugar otra vez</button>
+    </div>
+
+    <!-- JUEGO 2 ALUMNO: DOBBLE -->
+    <div id="student-game-dobble" class="hidden">
+      <h2 class="text-xl sm:text-2xl font-bold text-orange-600 mb-1">🎯 ¡Encontrá el dibujo repetido!</h2>
+      <p class="text-xs text-gray-500 mb-3">Tocá el dibujo que aparece en las DOS tarjetas</p>
+      <div id="student-dobble-cards" class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center justify-items-center"></div>
+      <div id="student-dobble-feedback" class="mt-3 font-bold text-lg text-emerald-600"></div>
+    </div>
+
+    <!-- JUEGO 3 ALUMNO: ¿QUÉ DESAPARECIÓ? -->
+    <div id="student-game-desaparecio" class="hidden">
+      <h2 id="student-instruction" class="text-2xl font-bold text-purple-700 mb-4">¡Mirá con atención! 👀</h2>
+      <div id="student-items-grid" class="grid grid-cols-2 gap-3.5 mb-4"></div>
+      <div id="student-answer-buttons" class="hidden animate-pop">
+        <p class="text-lg font-bold text-slate-700 mb-2.5">¿Cuál desapareció? ¡Tocalo!</p>
+        <div id="student-options-container" class="grid grid-cols-2 gap-3"></div>
+      </div>
+      <div id="student-answer-sent" class="hidden animate-pop"></div>
+    </div>
+
+    <!-- JUEGO 4 ALUMNO: RULETA DE DESAFÍOS -->
+    <div id="student-game-roleta" class="hidden">
+      <h2 class="text-2xl font-bold text-pink-600 mb-3">🎡 Roleta de Desafios</h2>
+      <div class="relative w-56 h-56 mx-auto mb-4 flex items-center justify-center">
+        <div class="absolute -top-3 z-20 text-3xl">🔻</div>
+        <div id="roulette-wheel" class="w-52 h-52 rounded-full border-8 border-pink-500 shadow-xl flex items-center justify-center text-6xl bg-gradient-to-tr from-amber-200 via-pink-200 to-sky-200">
+          🎯
+        </div>
+      </div>
+      <div id="student-roulette-text" class="bg-pink-50 border-2 border-pink-300 rounded-2xl p-4 font-bold text-xl text-pink-900 min-h-[5rem] flex items-center justify-center">
+        Esperando que gire la ruleta...
+      </div>
+      <button id="solo-roulette-btn" onclick="spinSoloRoulette()" class="hidden mt-4 bg-pink-600 text-white font-bold px-6 py-3 rounded-2xl text-lg btn-game">🎰 ¡Girar Ruleta!</button>
+    </div>
+
+    <!-- JUEGO 5 ALUMNO: CAÇA AO TESOURO / SIMÓN DICE -->
+    <div id="student-game-caza" class="hidden">
+      <div id="student-mission-card" class="bg-gradient-to-b from-amber-50 to-orange-100 border-4 border-amber-300 rounded-3xl p-6 animate-pop">
+        <div id="student-mission-badge" class="inline-block bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase mb-2">Misión</div>
+        <div id="student-mission-emoji" class="text-7xl my-3 animate-float">🔍</div>
+        <h2 id="student-mission-pt" class="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">...</h2>
+        <p id="student-mission-es" class="text-sm text-gray-600 mb-5">...</p>
+        <button id="btn-mission-done" onclick="completeMission()" class="w-full bg-emerald-500 text-white font-bold py-4 rounded-2xl text-xl btn-game">
+          ✅ ¡Listo! ¡Lo hice! 🏆
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBJzDYXZ2N92vMUFsk_vDFsrEnpSR9up7w",
+      authDomain: "test-aula-portugues.firebaseapp.com",
+      databaseURL: "https://test-aula-portugues-default-rtdb.firebaseio.com",
+      projectId: "test-aula-portugues",
+      storageBucket: "test-aula-portugues.firebasestorage.app",
+      messagingSenderId: "641327857131",
+      appId: "1:641327857131:web:e0bb9f4d42c47ced72edae",
+      measurementId: "G-FSTMCC083B"
+    };
+
+    const VOCABULARIO = [
+      { id: 'cachorro', cat: 'animales', pt: 'O cachorro', emoji: '🐶' },
+      { id: 'gato', cat: 'animales', pt: 'O gato', emoji: '🐱' },
+      { id: 'peixe', cat: 'animales', pt: 'O peixe', emoji: '🐠' },
+      { id: 'borboleta', cat: 'animales', pt: 'A borboleta', emoji: '🦋' },
+      { id: 'leao', cat: 'animales', pt: 'O leão', emoji: '🦁' },
+      { id: 'macaco', cat: 'animales', pt: 'O macaco', emoji: '🐵' },
+      { id: 'sapo', cat: 'animales', pt: 'O sapo', emoji: '🐸' },
+      { id: 'passaro', cat: 'animales', pt: 'O pássaro', emoji: '🐦' },
+      { id: 'maca', cat: 'comidas', pt: 'A maçã', emoji: '🍎' },
+      { id: 'banana', cat: 'comidas', pt: 'A banana', emoji: '🍌' },
+      { id: 'sorvete', cat: 'comidas', pt: 'O sorvete', emoji: '🍦' },
+      { id: 'morango', cat: 'comidas', pt: 'O morango', emoji: '🍓' },
+      { id: 'bolo', cat: 'comidas', pt: 'O bolo', emoji: '🎂' },
+      { id: 'suco', cat: 'comidas', pt: 'O suco', emoji: '🧃' },
+      { id: 'melancia', cat: 'comidas', pt: 'A melancia', emoji: '🍉' },
+      { id: 'sol', cat: 'objetos', pt: 'O sol', emoji: '☀️' },
+      { id: 'carro', cat: 'objetos', pt: 'O carro', emoji: '🚗' },
+      { id: 'bola', cat: 'objetos', pt: 'A bola', emoji: '⚽' },
+      { id: 'estrela', cat: 'objetos', pt: 'A estrela', emoji: '⭐' },
+      { id: 'casa', cat: 'objetos', pt: 'A casa', emoji: '🏠' },
+      { id: 'aviao', cat: 'objetos', pt: 'O avião', emoji: '✈️' },
+      { id: 'mao', cat: 'cuerpo', pt: 'A mão', emoji: '🖐️' },
+      { id: 'pe', cat: 'cuerpo', pt: 'O pé', emoji: '🦶' },
+      { id: 'olho', cat: 'cuerpo', pt: 'O olho', emoji: '👁️' },
+      { id: 'boca', cat: 'cuerpo', pt: 'A boca', emoji: '👄' },
+      { id: 'sapato', cat: 'cuerpo', pt: 'O sapato', emoji: '👟' },
+      { id: 'chapeu', cat: 'cuerpo', pt: 'O chapéu', emoji: '🧢' }
+    ];
+
+    const CARD_COLORS = [
+      { pt: 'Azul', bg: 'bg-blue-500', border: 'border-blue-300', text: 'text-white' },
+      { pt: 'Amarela', bg: 'bg-yellow-400', border: 'border-yellow-200', text: 'text-yellow-950' },
+      { pt: 'Verde', bg: 'bg-emerald-500', border: 'border-emerald-300', text: 'text-white' },
+      { pt: 'Roxa', bg: 'bg-purple-500', border: 'border-purple-300', text: 'text-white' },
+      { pt: 'Vermelha', bg: 'bg-rose-500', border: 'border-rose-300', text: 'text-white' },
+      { pt: 'Laranja', bg: 'bg-orange-500', border: 'border-orange-300', text: 'text-white' },
+      { pt: 'Rosa', bg: 'bg-pink-400', border: 'border-pink-200', text: 'text-white' },
+      { pt: 'Marrom', bg: 'bg-amber-800', border: 'border-amber-600', text: 'text-white' },
+      { pt: 'Preta', bg: 'bg-slate-800', border: 'border-slate-600', text: 'text-white' },
+      { pt: 'Cinza', bg: 'bg-gray-400', border: 'border-gray-200', text: 'text-gray-900' },
+      { pt: 'Turquesa', bg: 'bg-cyan-500', border: 'border-cyan-300', text: 'text-white' },
+      { pt: 'Dourada', bg: 'bg-amber-500', border: 'border-amber-300', text: 'text-white' }
+    ];
+
+    const DESAFIOS_RULETA = [
+      { pt: 'Pule como um sapo 3 vezes! 🐸', es: '¡Saltá como un sapo 3 veces!' },
+      { pt: 'Imite o som de um cachorro! 🐶', es: '¡Imitá el sonido de un perro!' },
+      { pt: 'Toque no seu nariz e diga "Nariz"! 👃', es: '¡Tocate la nariz y decí "Nariz"!' },
+      { pt: 'Dê um sorriso bem grande! 😁', es: '¡Dá una sonrisa bien grande!' },
+      { pt: 'Bata palmas 5 vezes! 👏', es: '¡Aplaudí 5 veces!' },
+      { pt: 'Imite um leão bem bravo! 🦁', es: '¡Imitá un león bien bravo!' },
+      { pt: 'Voe como um pássaro! 🐦', es: '¡Volá como un pájaro!' },
+      { pt: 'Diga "Eu gosto de sorvete!" 🍦', es: '¡Decí "Me gusta el helado"!' }
+    ];
+
+    const MISIONES_TESORO = [
+      { pt: 'Traga algo AZUL!', es: '¡Traé algo de color AZUL!', emoji: '🔵' },
+      { pt: 'Traga algo VERMELHO!', es: '¡Traé algo de color ROJO!', emoji: '🔴' },
+      { pt: 'Traga algo AMARELO!', es: '¡Traé algo de color AMARILLO!', emoji: '🟡' },
+      { pt: 'Traga um BRINQUEDO!', es: '¡Traé un JUGUETE!', emoji: '🧸' },
+      { pt: 'Traga um SAPATO!', es: '¡Traé un ZAPATO!', emoji: '👟' },
+      { pt: 'Traga uma COLHER!', es: '¡Traé una CUCHARA!', emoji: '🥄' }
+    ];
+
+    const MISIONES_SIMON = [
+      { pt: 'O mestre mandou: Toque a CABEÇA!', es: 'Simón dice: ¡Tocate la CABEZA!', emoji: '🙆‍♂️' },
+      { pt: 'O mestre mandou: Levante as MÃOS!', es: 'Simón dice: ¡Levantá las MANOS!', emoji: '🙌' },
+      { pt: 'O mestre mandou: Feche os OLHOS!', es: 'Simón dice: ¡Cerrá los OJOS!', emoji: '😌' },
+      { pt: 'O mestre mandou: Mostre a LÍNGUA!', es: 'Simón dice: ¡Sacá la LENGUA!', emoji: '😛' },
+      { pt: 'O mestre mandou: Dê um ABRAÇO em você!', es: 'Simón dice: ¡Date un ABRAZO!', emoji: '🤗' }
+    ];
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let currentRoom = null;
+    let studentId = 'st_' + Math.random().toString(36).substr(2, 6);
+    let myRole = null;
+    let lastPhase = null;
+    let lastScore = 0;
+    let lastSpinId = null;
+
+    let soloState = {
+      score: 0,
+      deck: [],
+      flipped: [],
+      dobble: null,
+      desaparecio: null,
+      rotation: 0
+    };
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSfx(type) {
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      if (type === 'pop') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(420, now);
+        osc.frequency.exponentialRampToValueAtTime(780, now + 0.09);
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.09);
+        osc.start(now); osc.stop(now + 0.09);
+      } else if (type === 'flip') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.exponentialRampToValueAtTime(600, now + 0.12);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+        osc.start(now); osc.stop(now + 0.12);
+      } else if (type === 'magic') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(650, now);
+        osc.frequency.exponentialRampToValueAtTime(180, now + 0.35);
+        gain.gain.setValueAtTime(0.28, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+        osc.start(now); osc.stop(now + 0.35);
+      } else if (type === 'win') {
+        [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+          const o = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          o.type = 'triangle';
+          o.connect(g); g.connect(audioCtx.destination);
+          o.frequency.setValueAtTime(freq, now + i * 0.08);
+          g.gain.setValueAtTime(0.2, now + i * 0.08);
+          g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.08 + 0.25);
+          o.start(now + i * 0.08); o.stop(now + i * 0.08 + 0.25);
+        });
+      } else if (type === 'wrong') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(190, now);
+        osc.frequency.linearRampToValueAtTime(130, now + 0.22);
+        gain.gain.setValueAtTime(0.16, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
+        osc.start(now); osc.stop(now + 0.22);
+      }
+    }
+
+    function lanzarConfeti() {
+      if (typeof confetti === 'function') {
+        confetti({ particleCount: 75, spread: 65, origin: { y: 0.65 } });
+      }
+    }
+
+    function hablarPortugues(texto) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const cleanText = texto.replace(/[\u{1F300}-\u{1F9FF}]/gu, '');
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.lang = 'pt-BR';
+        utterance.rate = 0.85;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    function createRoomAsTeacher() {
+      myRole = 'teacher';
+      currentRoom = Math.floor(1000 + Math.random() * 9000).toString();
+      document.getElementById('teacher-room-code').innerText = currentRoom;
+      document.getElementById('screen-login').classList.add('hidden');
+      document.getElementById('screen-teacher').classList.remove('hidden');
+
+      db.ref('rooms/' + currentRoom).set({
+        mode: 'memotest',
+        activeTurnStudent: null
+      });
+
+      startNewMemotest();
+      listenStudents();
+    }
+
+    function setGameMode(mode) {
+      db.ref('rooms/' + currentRoom + '/mode').set(mode);
+      const modes = ['memotest', 'dobble', 'desaparecio', 'roleta', 'caza'];
+      modes.forEach(m => {
+        document.getElementById(`teacher-controls-${m}`).classList.toggle('hidden', m !== mode);
+        const btn = document.getElementById(`btn-mode-${m}`);
+        btn.className = m === mode
+          ? 'px-3.5 py-2 rounded-xl font-bold text-sm bg-amber-500 text-white btn-game'
+          : 'px-3.5 py-2 rounded-xl font-bold text-sm bg-gray-200 text-gray-700 btn-game';
+      });
+
+      if (mode === 'memotest') startNewMemotest();
+      if (mode === 'dobble') startNewDobble();
+      if (mode === 'desaparecio') startNewDisappearRound();
+      if (mode === 'caza') nextMission('tesouro');
+    }
+
+    function buildColorMemotestDeck(cat, pairsCount) {
+      const pool = cat === 'todos' ? VOCABULARIO : VOCABULARIO.filter(i => i.cat === cat);
+      const selected = [...pool].sort(() => 0.5 - Math.random()).slice(0, pairsCount);
+      const colors = [...CARD_COLORS].sort(() => 0.5 - Math.random()).slice(0, pairsCount * 2);
+      return [...selected, ...selected]
+        .sort(() => 0.5 - Math.random())
+        .map((item, idx) => ({
+          ...item,
+          uid: idx,
+          color: colors[idx],
+          flipped: false,
+          matched: false
+        }));
+    }
+
+    function startNewMemotest() {
+      const cat = document.getElementById('memo-cat').value;
+      const pairs = parseInt(document.getElementById('memo-size').value, 10);
+      const deck = buildColorMemotestDeck(cat, pairs);
+
+      db.ref('rooms/' + currentRoom + '/memotest').set({
+        deck: deck,
+        flippedIndices: []
+      });
+      renderTeacherMemotest(deck);
+    }
+
+    function renderTeacherMemotest(deck) {
+      const grid = document.getElementById('teacher-memotest-grid');
+      grid.innerHTML = deck.map((card, idx) => `
+        <button onclick="flipCard(${idx})" class="p-2.5 rounded-2xl border-2 btn-game ${card.flipped || card.matched ? 'bg-white border-teal-500' : `${card.color.bg} ${card.color.border} ${card.color.text}`} text-center">
+          <div class="text-xs font-bold uppercase opacity-90">Carta ${card.color.pt}</div>
+          <div class="text-2xl my-0.5">${card.emoji}</div>
+          <div class="text-xs font-bold">${card.pt}</div>
+          <div class="text-[10px] mt-0.5 font-bold">${card.matched ? '✅ Par listo' : (card.flipped ? '👁️ Abierta' : '🔒 Cerrada')}</div>
+        </button>
+      `).join('');
+    }
+
+    function flipCard(index) {
+      if (myRole === 'solo') {
+        flipSoloCard(index);
+        return;
+      }
+      db.ref('rooms/' + currentRoom + '/memotest').once('value', snap => {
+        const data = snap.val();
+        if (!data) return;
+        let deck = data.deck;
+        let flipped = data.flippedIndices || [];
+
+        if (deck[index].matched || flipped.includes(index) || flipped.length >= 2) return;
+
+        playSfx('flip');
+        deck[index].flipped = true;
+        flipped.push(index);
+        hablarPortugues(deck[index].pt);
+
+        db.ref('rooms/' + currentRoom + '/memotest').set({ deck, flippedIndices: flipped });
+        if (myRole === 'teacher') renderTeacherMemotest(deck);
+
+        if (flipped.length === 2) {
+          const [i1, i2] = flipped;
+          setTimeout(() => {
+            if (deck[i1].id === deck[i2].id) {
+              deck[i1].matched = true;
+              deck[i2].matched = true;
+              playSfx('win');
+              lanzarConfeti();
+            } else {
+              deck[i1].flipped = false;
+              deck[i2].flipped = false;
+              playSfx('wrong');
+            }
+            db.ref('rooms/' + currentRoom + '/memotest').set({ deck, flippedIndices: [] });
+            if (myRole === 'teacher') renderTeacherMemotest(deck);
+          }, 1450);
+        }
+      });
+    }
+
+    function generateDobbleRoundData() {
+      const shuffled = [...VOCABULARIO].sort(() => 0.5 - Math.random());
+      const matchItem = shuffled[0];
+      const cardA = [matchItem, shuffled[1], shuffled[2], shuffled[3]].sort(() => 0.5 - Math.random());
+      const cardB = [matchItem, shuffled[4], shuffled[5], shuffled[6]].sort(() => 0.5 - Math.random());
+      return { matchId: matchItem.id, matchPt: matchItem.pt, cardA, cardB, roundId: Date.now(), winner: null };
+    }
+
+    function startNewDobble() {
+      const round = generateDobbleRoundData();
+      db.ref('rooms/' + currentRoom + '/dobble').set(round);
+      document.getElementById('teacher-dobble-preview').innerHTML = `
+        <p class="text-sm text-gray-500">Objeto repetido en esta ronda:</p>
+        <p class="text-2xl font-bold text-orange-600 mt-1">${round.cardA.find(i => i.id === round.matchId).emoji} ${round.matchPt}</p>
+      `;
+    }
+
+    function startNewDisappearRound() {
+      const cat = document.getElementById('disappear-cat').value;
+      const pool = cat === 'todos' ? VOCABULARIO : VOCABULARIO.filter(i => i.cat === cat);
+      const shuffled = [...pool].sort(() => 0.5 - Math.random()).slice(0, 4);
+      const missingIndex = Math.floor(Math.random() * 4);
+
+      db.ref('rooms/' + currentRoom + '/students').once('value', snap => {
+        snap.forEach(child => db.ref(`rooms/${currentRoom}/students/${child.key}/lastAnswer`).remove());
+      });
+
+      db.ref('rooms/' + currentRoom + '/desaparecio').set({
+        items: shuffled,
+        missingIndex: missingIndex,
+        phase: 'showing',
+        roundId: Date.now()
+      });
+
+      document.getElementById('teacher-preview-items').innerHTML = shuffled.map((item, idx) => `
+        <div class="p-2.5 rounded-2xl border-2 ${idx === missingIndex ? 'border-rose-400 bg-rose-50' : 'border-gray-200 bg-white'}">
+          <div class="text-3xl">${item.emoji}</div>
+          <div class="font-bold text-xs mt-1">${item.pt}</div>
+          ${idx === missingIndex ? '<span class="inline-block mt-1 text-[10px] bg-rose-500 text-white px-2 py-0.5 rounded-full font-bold">Se oculta</span>' : ''}
+        </div>
+      `).join('');
+    }
+
+    function hideOneObject() {
+      db.ref('rooms/' + currentRoom + '/desaparecio/phase').set('hidden');
+    }
+
+    function revealMissingObject() {
+      db.ref('rooms/' + currentRoom + '/desaparecio/phase').set('revealed');
+      db.ref('rooms/' + currentRoom + '/desaparecio').once('value', snap => {
+        const data = snap.val();
+        hablarPortugues(data.items[data.missingIndex].pt);
+        lanzarConfeti();
+      });
+    }
+
+    function spinRoulette() {
+      playSfx('magic');
+      const challenge = DESAFIOS_RULETA[Math.floor(Math.random() * DESAFIOS_RULETA.length)];
+      const spinId = Date.now();
+      db.ref('rooms/' + currentRoom + '/roleta').set({ challenge, spinId });
+      document.getElementById('teacher-roulette-result').innerHTML = `
+        <p class="text-pink-700 text-xl">${challenge.pt}</p>
+        <p class="text-gray-500 text-sm mt-1">(${challenge.es})</p>
+      `;
+      setTimeout(() => hablarPortugues(challenge.pt), 3600);
+    }
+
+    function nextMission(type) {
+      const list = type === 'tesouro' ? MISIONES_TESORO : MISIONES_SIMON;
+      const mission = list[Math.floor(Math.random() * list.length)];
+      db.ref('rooms/' + currentRoom + '/students').once('value', snap => {
+        snap.forEach(child => db.ref(`rooms/${currentRoom}/students/${child.key}/lastAnswer`).remove());
+      });
+      db.ref('rooms/' + currentRoom + '/caza').set({
+        type: type === 'tesouro' ? '🔍 Caça ao Tesouro' : '🗣️ O Mestre Mandou',
+        mission,
+        missionId: Date.now()
+      });
+      document.getElementById('teacher-mission-preview').innerHTML = `
+        <span class="text-3xl">${mission.emoji}</span>
+        <p class="text-xl text-amber-800 mt-1">${mission.pt}</p>
+        <p class="text-xs text-gray-500">${mission.es}</p>
+      `;
+      hablarPortugues(mission.pt);
+    }
+
+    function listenStudents() {
+      db.ref(`rooms/${currentRoom}`).on('value', snap => {
+        const room = snap.val();
+        if (!room) return;
+        const list = document.getElementById('students-list');
+        const activeId = room.activeTurnStudent;
+        const students = room.students;
+
+        if (!students) {
+          list.innerHTML = '<p class="text-gray-400 text-sm">Esperando que entren los alumnos...</p>';
+          return;
+        }
+        let html = '';
+        Object.keys(students).forEach(key => {
+          const st = students[key];
+          const isTurn = activeId === key;
+          html += `
+            <div class="p-3 rounded-2xl border-2 transition-all ${isTurn ? 'border-emerald-500 bg-emerald-50 shadow' : 'border-gray-200 bg-white'} flex flex-col justify-between">
+              <div class="flex justify-between items-center">
+                <span class="font-bold text-base text-gray-800">👦 ${st.name}</span>
+                <span class="bg-amber-200 text-amber-900 text-xs font-bold px-2 py-0.5 rounded-full">⭐ ${st.score || 0}</span>
+              </div>
+              <div class="text-xs mt-1.5 text-gray-600">
+                ${st.lastAnswer ? `Estado: <b>${st.lastAnswer}</b>` : 'En línea'}
+              </div>
+              <button onclick="playSfx('pop'); giveTurnTo('${key}')" class="mt-2 text-xs font-bold py-1.5 px-2 rounded-xl btn-game ${isTurn ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'}">
+                ${isTurn ? '🟢 Tiene el turno' : 'Dar turno (Memotest)'}
+              </button>
+            </div>
+          `;
+        });
+        list.innerHTML = html;
+      });
+    }
+
+    function giveTurnTo(stKey) {
+      db.ref(`rooms/${currentRoom}/activeTurnStudent`).set(stKey);
+    }
+
+    function joinAsStudent() {
+      const name = document.getElementById('student-name').value.trim();
+      const code = document.getElementById('room-code-input').value.trim();
+      if (!name || !code) return alert("¡Escribí tu nombre y el código de la sala!");
+
+      db.ref('rooms/' + code).once('value', snap => {
+        if (!snap.exists()) return alert("No existe una sala con ese código. Revisalo con la profe.");
+        
+        myRole = 'student';
+        currentRoom = code;
+        document.getElementById('display-student-name').innerText = name;
+        document.getElementById('screen-login').classList.add('hidden');
+        document.getElementById('screen-student').classList.remove('hidden');
+
+        const studentRef = db.ref(`rooms/${currentRoom}/students/${studentId}`);
+        studentRef.set({ name: name, score: 0 });
+        studentRef.onDisconnect().remove();
+
+        listenRoomAsStudent();
+      });
+    }
+
+    function listenRoomAsStudent() {
+      db.ref(`rooms/${currentRoom}/students/${studentId}/score`).on('value', snap => {
+        const sc = snap.val() || 0;
+        if (sc > lastScore) { playSfx('win'); lanzarConfeti(); }
+        lastScore = sc;
+        document.getElementById('display-student-score').innerText = sc;
+      });
+
+      db.ref(`rooms/${currentRoom}`).on('value', snap => {
+        const room = snap.val();
+        if (!room) return;
+
+        const modes = ['memotest', 'dobble', 'desaparecio', 'roleta', 'caza'];
+        modes.forEach(m => document.getElementById(`student-game-${m}`).classList.toggle('hidden', room.mode !== m));
+
+        if (room.mode === 'memotest' && room.memotest) renderStudentMemotest(room.memotest, room.activeTurnStudent === studentId);
+        if (room.mode === 'dobble' && room.dobble) renderStudentDobble(room.dobble);
+        if (room.mode === 'desaparecio' && room.desaparecio) renderStudentDesaparecio(room.desaparecio);
+        if (room.mode === 'roleta' && room.roleta) renderStudentRoulette(room.roleta);
+        if (room.mode === 'caza' && room.caza) renderStudentMission(room.caza);
+      });
+    }
+
+    function renderStudentMemotest(data, isMyTurn) {
+      const banner = document.getElementById('student-memo-banner');
+      if (myRole === 'solo') {
+        banner.innerText = "🎨 Tocá dos cartas de colores para encontrar el par";
+        banner.className = "py-2 px-3 rounded-2xl mb-4 font-bold text-base bg-teal-100 text-teal-800";
+      } else if (isMyTurn) {
+        banner.innerText = "🟢 ¡ES TU TURNO! Elegí un color";
+        banner.className = "py-2.5 px-3 rounded-2xl mb-4 font-bold text-lg bg-emerald-500 text-white shadow-lg animate-bounce";
+      } else {
+        banner.innerText = "👀 Mirá qué colores se abren...";
+        banner.className = "py-2 px-3 rounded-2xl mb-4 font-bold text-base bg-slate-200 text-slate-600";
+      }
+
+      const canClick = myRole === 'solo' || isMyTurn;
+      const grid = document.getElementById('student-memotest-grid');
+      grid.innerHTML = data.deck.map((card, idx) => {
+        const show = card.flipped || card.matched;
+        return `
+          <div onclick="${canClick && !show ? `flipCard(${idx})` : ''}" class="h-28 sm:h-32 perspective ${canClick && !show ? 'cursor-pointer' : ''}">
+            <div class="card-inner ${show ? 'card-flipped' : ''}">
+              <div class="card-face ${card.color.bg} border-4 ${card.color.border} ${card.color.text} shadow-md p-1">
+                <span class="text-base sm:text-lg font-bold tracking-wide drop-shadow-sm">${card.color.pt}</span>
+              </div>
+              <div class="card-face card-back bg-white border-4 ${card.matched ? 'border-emerald-500 bg-emerald-50' : 'border-teal-400'} shadow-md p-1.5">
+                <span class="text-4xl sm:text-5xl mb-1">${card.emoji}</span>
+                <span class="text-xs font-bold text-gray-800">${card.pt}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderStudentDobble(data) {
+      const container = document.getElementById('student-dobble-cards');
+      const feedback = document.getElementById('student-dobble-feedback');
+      
+      if (data.winner) {
+        feedback.innerText = `🎉 ¡${data.winner} encontró: ${data.matchPt}!`;
+      } else {
+        feedback.innerText = "";
+      }
+
+      const renderCircle = (items) => `
+        <div class="w-56 h-56 sm:w-60 sm:h-60 rounded-full bg-white border-8 border-orange-400 shadow-xl grid grid-cols-2 gap-2 p-5 items-center justify-items-center">
+          ${items.map((item, i) => `
+            <button onclick="checkDobbleChoice('${item.id}', '${item.pt}', '${data.matchId}', ${data.roundId})"
+              style="transform: rotate(${(i * 17) - 20}deg) scale(${i % 2 === 0 ? 1.12 : 0.92});"
+              class="text-5xl hover:scale-125 transition-transform active:scale-90 p-1">
+              ${item.emoji}
+            </button>
+          `).join('')}
+        </div>
+      `;
+      container.innerHTML = renderCircle(data.cardA) + renderCircle(data.cardB);
+    }
+
+    function checkDobbleChoice(chosenId, chosenPt, matchId, roundId) {
+      hablarPortugues(chosenPt);
+      if (chosenId !== matchId) {
+        playSfx('wrong');
+        return;
+      }
+      playSfx('win');
+      lanzarConfeti();
+
+      if (myRole === 'solo') {
+        soloState.score++;
+        document.getElementById('display-student-score').innerText = soloState.score;
+        document.getElementById('student-dobble-feedback').innerText = `🎉 ¡Genial! Era ${chosenPt}`;
+        setTimeout(() => initSoloGame('dobble'), 1300);
+        return;
+      }
+
+      const dobbleRef = db.ref(`rooms/${currentRoom}/dobble`);
+      dobbleRef.once('value', snap => {
+        const d = snap.val();
+        if (!d || d.winner) return;
+        const myName = document.getElementById('display-student-name').innerText;
+        dobbleRef.update({ winner: myName });
+        db.ref(`rooms/${currentRoom}/students/${studentId}/score`).transaction(c => (c || 0) + 1);
+      });
+    }
+
+    function renderStudentDesaparecio(data) {
+      const grid = document.getElementById('student-items-grid');
+      const ansBox = document.getElementById('student-answer-buttons');
+      const optsContainer = document.getElementById('student-options-container');
+      const title = document.getElementById('student-instruction');
+
+      const stateKey = `${data.roundId}_${data.phase}`;
+      if (lastPhase === stateKey) return;
+      lastPhase = stateKey;
+
+      const sentBox = document.getElementById('student-answer-sent');
+      if (data.phase === 'showing') {
+        playSfx('pop');
+        title.innerText = "¡Memorizá los dibujos! 👀";
+        ansBox.classList.add('hidden');
+        sentBox.classList.add('hidden');
+        grid.innerHTML = data.items.map((item, i) => `
+          <button onclick="playSfx('pop'); hablarPortugues('${item.pt}')" style="animation-delay: ${i * 0.08}s" class="opacity-0 animate-pop bg-gradient-to-b from-white to-purple-50 border-4 border-purple-200 rounded-3xl p-4 btn-game">
+            <div class="text-5xl sm:text-6xl mb-1">${item.emoji}</div>
+            <div class="text-base font-bold text-purple-900">${item.pt}</div>
+          </button>
+        `).join('');
+      } else if (data.phase === 'hidden') {
+        playSfx('magic');
+        title.innerText = "¡Desapareció uno! 🙈";
+        grid.innerHTML = data.items.map((item, idx) => {
+          if (idx === data.missingIndex) {
+            return `<div class="magic-curtain animate-pop rounded-3xl p-4 flex items-center justify-center text-white text-5xl font-bold h-32 border-4 border-indigo-300">❓</div>`;
+          }
+          return `
+            <div class="bg-slate-50 border-2 border-slate-200 rounded-3xl p-4 opacity-80">
+              <div class="text-5xl mb-1">${item.emoji}</div>
+              <div class="text-sm font-bold text-slate-600">${item.pt}</div>
+            </div>
+          `;
+        }).join('');
+
+        sentBox.classList.add('hidden');
+        ansBox.classList.remove('hidden');
+        optsContainer.innerHTML = data.items.map((item, idx) => `
+          <button onclick="submitDisappearAnswer('${item.pt}', ${idx === data.missingIndex})" class="bg-gradient-to-b from-amber-300 to-yellow-400 border-2 border-amber-500 rounded-2xl p-3 flex items-center justify-center gap-2 btn-game">
+            <span class="text-3xl">${item.emoji}</span>
+            <span class="font-bold text-gray-900 text-base">${item.pt}</span>
+          </button>
+        `).join('');
+      } else if (data.phase === 'revealed') {
+        const missing = data.items[data.missingIndex];
+        title.innerText = `¡Era ${missing.pt}! 🎉`;
+        ansBox.classList.add('hidden');
+        sentBox.classList.add('hidden');
+        grid.innerHTML = data.items.map((item, idx) => `
+          <div class="rounded-3xl p-4 border-4 transition-all ${idx === data.missingIndex ? 'bg-emerald-100 border-emerald-500 animate-pop scale-105 shadow-xl' : 'bg-slate-50 border-slate-200 opacity-60'}">
+            <div class="text-5xl mb-1">${item.emoji}</div>
+            <div class="text-base font-bold">${item.pt}</div>
+          </div>
+        `).join('');
+      }
+    }
+
+    function submitDisappearAnswer(chosenText, isCorrect) {
+      hablarPortugues(chosenText);
+      playSfx(isCorrect ? 'win' : 'wrong');
+
+      if (myRole === 'solo') {
+        if (isCorrect) {
+          soloState.score++;
+          document.getElementById('display-student-score').innerText = soloState.score;
+          lanzarConfeti();
+        }
+        soloState.desaparecio.phase = 'revealed';
+        renderStudentDesaparecio(soloState.desaparecio);
+        setTimeout(() => initSoloGame('desaparecio'), 2200);
+        return;
+      }
+
+      const stRef = db.ref(`rooms/${currentRoom}/students/${studentId}`);
+      stRef.update({ lastAnswer: isCorrect ? `✅ ${chosenText}` : `❌ ${chosenText}` });
+      if (isCorrect) stRef.child('score').transaction(c => (c || 0) + 1);
+      document.getElementById('student-answer-buttons').classList.add('hidden');
+      const sentBox = document.getElementById('student-answer-sent');
+      sentBox.classList.remove('hidden');
+      sentBox.innerHTML = `
+        <div class="bg-sky-50 border-2 border-sky-200 rounded-2xl p-3 animate-pop">
+          <p class="text-lg font-bold text-sky-700">¡Elegiste ${chosenText}! 🚀</p>
+          <p class="text-xs text-sky-600 mt-1">Esperando a la profe...</p>
+        </div>
+      `;
+    }
+
+    function renderStudentRoulette(data) {
+      if (lastSpinId === data.spinId) return;
+      lastSpinId = data.spinId;
+      playSfx('magic');
+      const wheel = document.getElementById('roulette-wheel');
+      const textBox = document.getElementById('student-roulette-text');
+      soloState.rotation += 1440 + Math.floor(Math.random() * 360);
+      wheel.style.transform = `rotate(${soloState.rotation}deg)`;
+      textBox.innerText = "Girando... 🎰";
+      setTimeout(() => {
+        playSfx('win');
+        lanzarConfeti();
+        textBox.innerHTML = `<div><p class="text-pink-700">${data.challenge.pt}</p><p class="text-xs text-gray-500 mt-1">${data.challenge.es}</p></div>`;
+        hablarPortugues(data.challenge.pt);
+      }, 3800);
+    }
+
+    function renderStudentMission(data) {
+      if (lastPhase === data.missionId) return;
+      lastPhase = data.missionId;
+      playSfx('pop');
+      document.getElementById('student-mission-badge').innerText = data.type;
+      document.getElementById('student-mission-emoji').innerText = data.mission.emoji;
+      document.getElementById('student-mission-pt').innerText = data.mission.pt;
+      document.getElementById('student-mission-es').innerText = data.mission.es;
+      const btn = document.getElementById('btn-mission-done');
+      btn.disabled = false;
+      btn.innerText = "✅ ¡Listo! ¡Lo hice! 🏆";
+      btn.className = "w-full bg-emerald-500 text-white font-bold py-4 rounded-2xl text-xl btn-game";
+      hablarPortugues(data.mission.pt);
+    }
+
+    function completeMission() {
+      playSfx('win');
+      lanzarConfeti();
+      const btn = document.getElementById('btn-mission-done');
+      btn.disabled = true;
+      btn.innerText = "⭐ ¡Excelente! +1 Estrella";
+      btn.className = "w-full bg-amber-400 text-amber-950 font-bold py-4 rounded-2xl text-xl";
+      const stRef = db.ref(`rooms/${currentRoom}/students/${studentId}`);
+      stRef.update({ lastAnswer: '🏆 ¡Misión cumplida!' });
+      stRef.child('score').transaction(c => (c || 0) + 1);
+    }
+
+    function startSoloPractice() {
+      myRole = 'solo';
+      document.getElementById('display-student-name').innerText = "Práctica Libre";
+      document.getElementById('screen-login').classList.add('hidden');
+      document.getElementById('screen-student').classList.remove('hidden');
+      document.getElementById('solo-menu-bar').classList.remove('hidden');
+      document.getElementById('solo-memo-reset').classList.remove('hidden');
+      document.getElementById('solo-roulette-btn').classList.remove('hidden');
+      initSoloGame('memotest');
+    }
+
+    function initSoloGame(game) {
+      const modes = ['memotest', 'dobble', 'desaparecio', 'roleta', 'caza'];
+      modes.forEach(m => document.getElementById(`student-game-${m}`).classList.toggle('hidden', m !== game));
+
+      if (game === 'memotest') {
+        soloState.deck = buildColorMemotestDeck('todos', 4);
+        soloState.flipped = [];
+        renderStudentMemotest({ deck: soloState.deck }, true);
+      } else if (game === 'dobble') {
+        soloState.dobble = generateDobbleRoundData();
+        renderStudentDobble(soloState.dobble);
+      } else if (game === 'desaparecio') {
+        const shuffled = [...VOCABULARIO].sort(() => 0.5 - Math.random()).slice(0, 4);
+        const missingIndex = Math.floor(Math.random() * 4);
+        soloState.desaparecio = { items: shuffled, missingIndex, phase: 'showing', roundId: Date.now() };
+        renderStudentDesaparecio(soloState.desaparecio);
+        setTimeout(() => {
+          if (myRole === 'solo' && soloState.desaparecio.phase === 'showing') {
+            soloState.desaparecio.phase = 'hidden';
+            renderStudentDesaparecio(soloState.desaparecio);
+          }
+        }, 4200);
+      } else if (game === 'roleta') {
+        document.getElementById('student-roulette-text').innerText = "¡Tocá el botón rosa para girar!";
+      }
+    }
+
+    function flipSoloCard(index) {
+      const deck = soloState.deck;
+      const flipped = soloState.flipped;
+      if (deck[index].matched || flipped.includes(index) || flipped.length >= 2) return;
+
+      playSfx('flip');
+      deck[index].flipped = true;
+      flipped.push(index);
+      hablarPortugues(deck[index].pt);
+      renderStudentMemotest({ deck }, true);
+
+      if (flipped.length === 2) {
+        const [i1, i2] = flipped;
+        setTimeout(() => {
+          if (deck[i1].id === deck[i2].id) {
+            deck[i1].matched = true;
+            deck[i2].matched = true;
+            soloState.score++;
+            document.getElementById('display-student-score').innerText = soloState.score;
+            playSfx('win');
+            lanzarConfeti();
+          } else {
+            deck[i1].flipped = false;
+            deck[i2].flipped = false;
+            playSfx('wrong');
+          }
+          soloState.flipped = [];
+          renderStudentMemotest({ deck }, true);
+        }, 1300);
+      }
+    }
+
+    function spinSoloRoulette() {
+      const challenge = DESAFIOS_RULETA[Math.floor(Math.random() * DESAFIOS_RULETA.length)];
+      renderStudentRoulette({ challenge, spinId: Date.now() });
+    }
+  </script>
+</body>
+</html>
